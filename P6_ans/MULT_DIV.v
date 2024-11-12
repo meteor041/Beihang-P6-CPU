@@ -25,7 +25,7 @@ module MULT_DIV(
     input [31:0] A,
     input [31:0] B,
     input start,
-    input [2:0] MULT_DIV_OP,
+    input [2:0] MULT_DIV_OP, // 乘除模块计算方式
     input MTHI,   
     input MTLO,       
     output reg busy,

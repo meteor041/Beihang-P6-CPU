@@ -38,6 +38,7 @@ module CTRL(
 
     // EX(执行)阶段
     output [3:0] ALUOp,
+    output ALU_A_Sel,
     output ALU_B_Sel,
     output WD_Sel,
     output [1:0] EX_NEW,
@@ -52,7 +53,8 @@ module CTRL(
     output MEM_WE, // 选择是否写入Memory
     output MEM_Sel, // 选择是否将Memory读出值向后传递
     output [1:0] MEM_A2_NEW,
-    output [1:0] MEM_PART
+    output [1:0] MEM_PART,
+    output [2:0] MEM_EXT_Control
     );
 
 /*---------------------------------输入指令分析------------------------------------------------*/
@@ -69,8 +71,10 @@ module CTRL(
     assign rd = instr[15:11];
 
 /*-----------------------------------------指令类型----------------------------------*/
-    wire R; // R类指令
-    wire add, sub, ori, lw, sw, beq, lui, jal, jr, nop; // P5课下指令
+    // R类指令
+    wire R;
+    // P5课下指令
+    wire add, sub, ori, lw, sw, beq, lui, jal, jr, nop; 
     // 新增跳转类指令
     wire bgez, bgtz, blez, bltz, bne;
     // 新增load/store类指令
@@ -79,26 +83,24 @@ module CTRL(
     wire swc, bonall;
     // P6
     wire and_, or_, slt, sltu, addi, andi;
+    // 乘除相关指令
     wire mult, multu, div, divu, mfhi, mflo, mthi, mtlo;
 
+    // R类指令
     assign R =   (op == 6'b0) ? 1 : 0;
     assign add = (R && funct == 6'b100000) ? 1 : 0;
     assign sub = (R && funct == 6'b100010) ? 1 : 0;
-    assign ori = (op == 6'b001101) ? 1 : 0;
-    assign lw =  (op == 6'b100011) ? 1 : 0;
-    assign sw =  (op == 6'b101011) ? 1 : 0;
-    assign beq = (op == 6'b000100) ? 1 : 0;
-    assign lui = (op == 6'b001111) ? 1 : 0;
-    assign jal = (op == 6'b000011) ? 1 : 0;
-    assign addi = (op == 6'b001000) ? 1 : 0;
-    assign andi = (op == 6'b001100) ? 1 : 0;
-    // R类指令
     assign jr =  (R && funct == 6'b001000) ? 1 : 0;
     assign nop = (R && funct == 6'b000000) ? 1 : 0;
     assign and_ = (R && funct == 6'b100100) ? 1 : 0;
     assign or_ = (R && funct == 6'b100101) ? 1 : 0;
     assign slt = (R && funct == 6'b101010) ? 1 : 0;
     assign sltu = (R && funct == 6'b101011) ? 1 : 0;
+    // I型指令
+    assign ori = (op == 6'b001101) ? 1 : 0;
+    assign lui = (op == 6'b001111) ? 1 : 0;
+    assign addi = (op == 6'b001000) ? 1 : 0;
+    assign andi = (op == 6'b001100) ? 1 : 0;
     // 乘除类指令
     assign mult = (R && funct == 6'b011000) ? 1 : 0;
     assign multu = (R && funct == 6'b011001) ? 1 : 0;
@@ -108,19 +110,21 @@ module CTRL(
     assign mflo = (R && funct == 6'b010010) ? 1 : 0;
     assign mthi = (R && funct == 6'b010001) ? 1 : 0;
     assign mtlo = (R && funct == 6'b010011) ? 1 : 0;
-    // 新增跳转类指令
+    // 跳转类指令
+    assign beq = (op == 6'b000100) ? 1 : 0;
     assign bgez = (op == 6'b000001 && rt == 5'b00001) ? 1 : 0;
     assign bgtz = (op == 6'b000111) ? 1 : 0;
     assign blez = (op == 6'b000110) ? 1 : 0;
     assign bltz = (op == 6'b000001 && rt == 5'b00000) ? 1 : 0;
     assign bne  = (op == 6'b000101) ? 1 : 0;
-
-    // 新增load/store类指令
+    assign jal = (op == 6'b000011) ? 1 : 0;
+    // load/store类指令
+    assign lw =  (op == 6'b100011) ? 1 : 0;
+    assign sw =  (op == 6'b101011) ? 1 : 0;
     assign lh = (op == 6'b100001) ? 1 : 0;
     assign sh = (op == 6'b101001) ? 1 : 0;
     assign lb = (op == 6'b100000) ? 1 : 0;
     assign sb = (op == 6'b101000) ? 1 : 0;
-
     // 2021年上机指令(关闭)
     assign swc =  0;
     assign bonall = 0;
@@ -135,8 +139,8 @@ module CTRL(
     // Bonall信号
     assign Bonall = bonall ? 1 : 0;
     // EXT模块控制信号(1:立即数零扩展;                    0:立即数符号扩展)
-    assign ExtControl = (lw || sw || beq || lui || bgez || bgtz || blez ||  bltz || bne || 
-                        lb || sb || lh || sh || addi) ? 1'b0 :
+    assign ExtControl = (lw || sw || beq || lui || bgez || bgtz || blez ||  
+                        bltz || bne || lb || sb || lh || sh || addi) ? 1'b0 :
                         (ori || andi) ? 1'b1 :
                         1'bz;
     // 与jal,bonall相关,若执行jal指令则为1,该信号为1时将Write Data(写入寄存器的数据)指定为ID_PC+8
@@ -167,6 +171,7 @@ module CTRL(
                         (bne) ? `cmpBne : 
                         (bonall) ? `cmpBonall :
                         4'bz;
+    // ID区当前是否在处理乘除相关指令
     assign ID_MD = (mult || multu || div || divu || mfhi || mflo ||  mthi || mtlo) ? 1 : 0;
 
 /*-------------------------------------------------EX(执行)阶段------------------------------------------*/
@@ -175,14 +180,16 @@ module CTRL(
                     (ori || or_) ? `aluOr : // |或
                     (sub) ? `aluSub : // -减
                     (lui) ? `aluLui : // 高位覆盖
-                    (swc) ? `aluSwc :
-                    (and_ || andi) ? `aluAnd :
-                    (slt) ? `aluSlt :
-                    (sltu) ? `aluSltu :
+                    (swc) ? `aluSwc : 
+                    (and_ || andi) ? `aluAnd : // 与
+                    (slt) ? `aluSlt : // signed数比较,小于置1
+                    (sltu) ? `aluSltu : // unsigned数比较,小于置1
                     4'bz;
+    // 选择寄存器rs的值还是寄存器rt的值(为sll提前准备)
+    assign ALU_A_Sel = 0;
     // 选择32位立即数或者寄存器rt的值(1:选择32位立即数;      0:选择寄存器rt的值)
     assign ALU_B_Sel = (ori || lw || sw || lui || lb || sb || lh || sh || addi || andi) ? 1'b1 :
-                        (add || sub || swc || and_ || or_ || slt || sltu) ?  1'b0 :
+                       (add || sub || swc || and_ || or_ || slt || sltu) ?  1'b0 :
                         1'bz;
     // 选择WriteData来源(1:ID阶段的PC+8;                    0:ALURes)
     assign WD_Sel = (jal || bonall) ? 1 : 0;
@@ -190,12 +197,15 @@ module CTRL(
     assign EX_NEW = (add || sub || ori || lui || swc || and_ || or_ || slt || sltu || addi || andi || mfhi || mflo) ? 2'd1 :// 再过1个时钟周期该寄存器的写入数据就会从EX_MEM间流水寄存器流出
                     (lw || lb || lh) ? 2'd2 : // 再过2个时钟周期该寄存器的写入数据就会从MEM_WB间流水寄存器流出
                     2'd0; // 已经流出或者没有对寄存器写入数值的操作
-    assign MULT_DIV_OP = (mult) ? `mult :
-                         (div) ? `div :
-                         (multu) ? `multu :
-                         (divu) ? `divu :
+    // 乘除模块计算方式
+    assign MULT_DIV_OP = (mult) ? `mult : // signed数相乘
+                         (div) ? `div : // signed数相除
+                         (multu) ? `multu : // unsigned数相乘
+                         (divu) ? `divu : // unsigned数相除
                          3'bz;
+    // 乘除模块开始信号
     assign MULT_DIV_START = (mult || div || multu || divu) ? 1 : 0;
+    // mthi信号,下同理
     assign MTHI = (mthi == 1) ? 1 : 0;
     assign MTLO = (mtlo == 1) ? 1 : 0;
     assign MFHI = (mfhi == 1) ? 1 : 0;
@@ -213,5 +223,10 @@ module CTRL(
                       (sh || lh) ? `memHalf :
                       (sb || lb) ? `memByte : 
                       2'bz;
+    // MEM的扩展位控制信号
+    assign MEM_EXT_Control = (lw) ? `nonExt :
+                             (lh) ? `signedHalfExt :
+                             (lb) ? `signedByteExt :
+                             3'bz;
 endmodule
 

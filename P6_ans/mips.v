@@ -194,11 +194,6 @@ module mips(
     wire [31:0] MEM_WB_WD;
     wire [1:0] MEM_A2_NEW;
     wire [3:0] MEM_BYTE_EN;
-    // wire [31:0] MEM_WRITE_DATA;
-    // assign m_data_addr = MEM_RES;
-    // assign m_data_wdata = MEM_WRITE_DATA;
-    // assign m_data_byteen = MEM_BYTE_EN;
-    // assign m_inst_addr = MEM_PC;
     MEM uvv7(
         .clk(clk),
         .reset(reset),
@@ -249,8 +244,6 @@ module mips(
     assign EX_A2 = EX_instr[20:16];
     wire [4:0] MEM_A2;
     assign MEM_A2 = MEM_instr[20:16];
-
-    
     HAZARD_CTRL uvv9(
         // ID
         .ID_A1(ID_A1),

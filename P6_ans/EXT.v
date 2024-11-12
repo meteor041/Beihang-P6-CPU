@@ -26,5 +26,5 @@ module EXT(
 
     // ExtControl为0时,作符号扩展,为1时,作零扩展
     assign imm32 = (ExtControl == 1'b0) ? {{16{imm16[15]}}, imm16} :
-                                       {{16{1'b0}}, imm16};
+                                          {{16{1'b0}}, imm16};
 endmodule

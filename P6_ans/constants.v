@@ -63,3 +63,10 @@
 `define div 3'b1
 `define multu 3'b10
 `define divu 3'b11
+
+// MEM_EXT
+`define nonExt 3'b000
+`define unsignedByteExt 3'b001
+`define signedByteExt 3'b010
+`define unsignedHalfExt 3'b011
+`define signedHalfExt 3'b100

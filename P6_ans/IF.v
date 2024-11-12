@@ -19,25 +19,19 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module IF(
-    input clk, 
-    input reset,    
+    input clk, // 时钟信号
+    input reset,   // 重置信号
     input enablePC, // PC 使能信号
     input [31:0] NPC, // PC地址输入
-    // output [31:0] IF_instr, // 输出指令
     output [31:0] IF_PC // 输出PC地址
     );
 
+    // 程序计数器
     PC pc(
         .clk(clk),
         .reset(reset),
         .enable(enablePC),
-        .NPC(NPC),
-        .PC(IF_PC)
+        .NPC(NPC), // PC地址输入
+        .PC(IF_PC) // 输出PC地址
     );
-
-    // IM im(
-    //     .PC(IF_PC),
-    //     .instr(IF_instr)
-    // );
-
 endmodule

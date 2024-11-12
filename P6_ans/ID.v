@@ -21,9 +21,9 @@
 module ID(
     input clk,
     input reset,
-    input [31:0] IF_PC,
-    input [31:0] ID_PC,
-    input [31:0] ID_instr,
+    input [31:0] IF_PC, // IF区的PC,用于正常的地址+4操作
+    input [31:0] ID_PC, // ID区的PC
+    input [31:0] ID_instr, // ID区的指令
     input [31:0] ID_RD1_forward, // 转发的Data1,其输入来源于HAZARD_CONTROL
     input [31:0] ID_RD2_forward, // 转发的Data2,其输入来源于HAZARD_CONTROL
     input [31:0] WB_WD, // 写入数据,来自于WB阶段
@@ -37,11 +37,11 @@ module ID(
     output [31:0] ID_NPC, // ID阶段计算的下一个地址
     output [1:0] ID_A1_USE, // ID阶段需要使用A1寄存器的信号
     output [1:0] ID_A2_USE, // ID阶段需要使用A2寄存器的信号
-    output ID_MD
+    output ID_MD // ID区当前是否在处理乘除相关指令
     );
 
 
-    // EXT
+/*----------------------------EXT,立即数扩展器----------------------------------*/
     wire [15:0] imm16;
     wire ExtControl;
     wire [31:0] imm32;
@@ -52,7 +52,7 @@ module ID(
         .imm32(imm32)
     );
 
-    // CMP
+/*--------------------------CMP,比较器-------------------------------------------*/
     wire [31:0] A;
     wire [31:0] B;
     assign A = ID_RD1_forward;
@@ -66,7 +66,7 @@ module ID(
         .zero(zero)
     );
 
-    // NPC
+/*--------------------------NPC,计算下一个指令地址-------------------------------------------*/
     wire [25:0]ID_imm26;
     wire Branch;
     wire Jal;
@@ -84,7 +84,7 @@ module ID(
         .NPC(ID_NPC) // 输出
     );
 
-    // ID_CTRL
+/*--------------------------ID_CTRL,ID区控制器-------------------------------------------*/
     wire Sel_ID_WD;
     CTRL ID_CTRL(
         .instr(ID_instr),
@@ -102,7 +102,7 @@ module ID(
         .ID_MD(ID_MD)
     );
     
-    // GRF,寄存器堆
+/*--------------------------GRF,寄存器堆-------------------------------------------*/
     wire [4:0] A1;
     wire [4:0] A2;
     wire [4:0] A3;
@@ -127,11 +127,11 @@ module ID(
         .RD2(RD2)
     );
     
-    // 输出
+/*--------------------------输出------------------------------------------*/
     wire[31:0] PC_PLUS_EIGHT;
     assign PC_PLUS_EIGHT = ID_PC + 32'd8;
     assign ID_RD1 = RD1;
     assign ID_RD2 = RD2;
     assign ID_IMM32 = imm32;
-    assign ID_WD = Sel_ID_WD ? PC_PLUS_EIGHT : 32'bz; // 这里只可能传递jal指定的PC+8
+    assign ID_WD = Sel_ID_WD ? PC_PLUS_EIGHT : 32'bz; // EX阶段只可能传递jal指定的PC+8,否则为无效的高阻值数据
 endmodule

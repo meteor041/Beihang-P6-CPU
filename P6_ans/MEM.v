@@ -22,55 +22,61 @@
 module MEM(
     input clk,
     input reset,
-    input [31:0] MEM_PC,
-    input [31:0] MEM_instr,
-    input [31:0] MEM_WD,
-    input [31:0] MEM_RES,
-    input [31:0] MEM_RD2_forward,
-    input [4:0] MEM_A3,
-    input [31:0] RD,
-    output [4:0] MEM_WB_A3,
-    output [31:0] MEM_WB_WD,
-    output [1:0] MEM_A2_NEW,
-    output [3:0] MEM_BYTE_EN,
-    output [31:0] MEM_WRITE_DATA,
-    output [31:0] MEM_DATA_ADDR,
-    output [31:0] MEM_INST_ADDR
+    input [31:0] MEM_PC, // 指令PC地址(用于$display)
+    input [31:0] MEM_instr, // MEM区当前指令
+    input [31:0] MEM_WD, // MEM区传递的写入A3寄存器的值,传递至WB区
+    input [31:0] MEM_RES, // MEM区传递的ALU计算结果
+    input [31:0] MEM_RD2_forward, // MEM区接收的A2转发数据
+    input [4:0] MEM_A3, // MEM区传递接收写入数据的A3寄存器,传递至WB区
+    input [31:0] RD, // 从MEMORY中读出的数据
+    output [4:0] MEM_WB_A3, // MEM区传递接收写入数据的A3寄存器,传递至WB区
+    output [31:0] MEM_WB_WD,// MEM区传递的写入A3寄存器的值,传递至WB区
+    output [1:0] MEM_A2_NEW, // MEM区$T_{NEW}$
+    output [3:0] MEM_BYTE_EN, // 写入MEM数据的按字节使能信号
+    output [31:0] MEM_WRITE_DATA, // 写入MEM,按字节重新排序的数据
+    output [31:0] MEM_DATA_ADDR, // 写入或读出的Memory地址
+    output [31:0] MEM_INST_ADDR // 当load/store指令对应的PC地址
     );
 
+/*--------------------------------控制信号-------------------------------*/
     wire WE;
-    // wire [31:0] RD;
     wire MEM_Sel;
     wire [1:0] MEM_PART;
+    wire [2:0] MEM_EXT_Control;
     CTRL mem_ctrl(
         .instr(MEM_instr),
         .MEM_WE(WE), // 写入Memory的使能信号
         .MEM_Sel(MEM_Sel),
         .MEM_A2_NEW(MEM_A2_NEW),
-        .MEM_PART(MEM_PART)
+        .MEM_PART(MEM_PART),
+        .MEM_EXT_Control(MEM_EXT_Control)
     );
-
-    // assign MEM_WB_WD = (MEM_Sel == 1) ? RD : MEM_WD;
-    
     assign MEM_WB_A3 = MEM_A3;
 
-    wire half;
-    wire [1:0] byte;
-    wire [31:0] addr;
-    assign addr = MEM_RES;
+/*--------------------------------LOAD类指令,读出Memory数据并进行扩展-------------------------------*/
+    wire [31:0] LOAD_DATA;
+    // MEM读出数据扩展部件
+    MEM_EXT mem_ext(
+        .A(addr[1:0]),
+        .Din(RD),
+        .Op(MEM_EXT_Control),
+        .Dout(LOAD_DATA)
+    );
 
-    // 在32bit的数据内定位
+    assign MEM_WB_WD = (MEM_Sel == 1) ? LOAD_DATA : MEM_WD;  
+
+/*--------------------------------STORE类指令相关,写入Memory-------------------------------*/
+    // lh定位
+    wire half;
+    // lb定位
+    wire [1:0] byte;
+    // 地址,是EX区的ALU计算结果
+    wire [31:0] addr;
+    assign addr = MEM_RES;    
     assign half = addr[1];
     assign byte = addr[1:0];
-    assign MEM_WB_WD = (MEM_Sel == 0) ? MEM_WD :
-                    (WE == 0 && MEM_PART == `memWord) ? RD :
-                    (WE == 0 && MEM_PART == `memHalf && half == 0) ? {{16{RD[15]}}, RD[15:0]} :
-                    (WE == 0 && MEM_PART == `memHalf && half == 1) ? {{16{RD[31]}}, RD[31:16]} :
-                    (WE == 0 && MEM_PART == `memByte && byte == 2'b00) ? {{24{RD[7]}}, RD[7:0]} : 
-                    (WE == 0 && MEM_PART == `memByte && byte == 2'b01) ? {{24{RD[15]}}, RD[15:8]} : 
-                    (WE == 0 && MEM_PART == `memByte && byte == 2'b10) ? {{24{RD[23]}}, RD[23:16]} : 
-                    (WE == 0 && MEM_PART == `memByte && byte == 2'b11) ? {{24{RD[31]}}, RD[31:24]} :
-                    MEM_WD;                         
+         
+    // 写入MEM数据的按字节使能信号
     assign MEM_BYTE_EN =  (WE == 0) ? 4'b0000 :
                     (MEM_PART == `memWord) ? 4'b1111 :
                     (MEM_PART == `memHalf && half == 0) ? 4'b0011 :
@@ -80,6 +86,7 @@ module MEM(
                     (MEM_PART == `memByte && byte == 2'b10) ? 4'b0100 : 
                     (MEM_PART == `memByte && byte == 2'b11) ? 4'b1000 :
                     4'b0000;
+    // 写入MEM,按字节重新排序的数据
     assign MEM_WRITE_DATA = (WE== 0) ? 32'b0 :
                     (MEM_PART == `memWord) ? MEM_RD2_forward:
                     (MEM_PART == `memHalf && half == 0) ? MEM_RD2_forward :
@@ -89,20 +96,8 @@ module MEM(
                     (MEM_PART == `memByte && byte == 2'b10) ? {8'b0, MEM_RD2_forward[7:0], 16'b0} : 
                     (MEM_PART == `memByte && byte == 2'b11) ? {MEM_RD2_forward[7:0], 24'b0} :
                     32'b0;
+    // 写入或读出的Memory地址
     assign MEM_DATA_ADDR = MEM_RES;
+    // 当load/store指令对应的PC地址
     assign MEM_INST_ADDR = MEM_PC;
- 
-    
-    // DM dm(
-    //     .clk(clk),
-    //     .reset(reset),
-    //     .WE(WE),
-    //     .MEM_PART(MEM_PART),
-    //     .addr(MEM_RES),
-    //     .WD(MEM_RD2_forward),
-    //     .PC(MEM_PC),
-    //     .RD(RD)
-    // );
-
-
 endmodule

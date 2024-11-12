@@ -34,17 +34,9 @@ module EX(
     output MULT_DIV_START
     );
 
-    // always @(posedge clk)begin
-    //     if (reset)begin
-    //         MEM_RES = 32'b0;
-    //         MEM_WD = 32'b0;
-    //         MEM_RD2 = 32'b0;
-    //     end
-    //     else begin
-
-    //     end
-    // end
+/*---------------------------EX_CTRL,EX区控制信号---------------------------------------*/
     wire [3:0] ALUOp;
+    wire ALU_A_Sel;
     wire ALU_B_Sel;
     wire WD_Sel;
     wire [2:0] MULT_DIV_OP;
@@ -55,6 +47,7 @@ module EX(
     CTRL ex_control(
         .instr(EX_instr),
         .ALUOp(ALUOp),
+        .ALU_A_Sel(ALU_A_Sel),
         .ALU_B_Sel(ALU_B_Sel),
         .WD_Sel(WD_Sel),
         .EX_NEW(EX_NEW),
@@ -66,10 +59,12 @@ module EX(
         .MFLO(MFLO)
     );
 
+/*---------------------------ALU---------------------------------------*/
     wire [31:0] SrcA;
     wire [31:0] SrcB;
     wire [31:0] ALURes;
-    assign SrcA = EX_RD1_forward;
+    assign SrcA = (ALU_A_Sel == 1) ? EX_RD2_forward :  // sll指令
+                                    EX_RD1_forward;
     assign SrcB = (ALU_B_Sel == 1) ? EX_imm32 : 
                                     EX_RD2_forward;
     ALU alu(
@@ -86,7 +81,7 @@ module EX(
                         ALURes;
     assign EX_MEM_RD2 = EX_RD2_forward;
 
-/*-----------------------------------------MULT_DIV乘除模块------------------------------------------------*/
+/*----------------------------MULT_DIV乘除模块------------------------------------------------*/
     wire busy;
     wire [31:0] HI;
     wire [31:0] LO;

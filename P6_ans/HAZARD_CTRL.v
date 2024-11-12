@@ -35,14 +35,14 @@ module HAZARD_CTRL(
     input [1:0] EX_NEW,
     input [4:0] EX_A3,
     input [31:0] EX_WD,
+    input MULT_DIV_BUSY,
+    input MULT_DIV_START,
     // MEM
     input [4:0] MEM_A2,
     input [31:0] MEM_RD2,
     input [1:0] MEM_A2_NEW,
     input [4:0] MEM_A3,
     input [31:0] MEM_WD,
-    input MULT_DIV_BUSY,
-    input MULT_DIV_START,
     // WB
     input [4:0] WB_A3,
     input [31:0] WB_WD,
